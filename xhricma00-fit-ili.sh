@@ -8,9 +8,16 @@ if ! command -v createrepo &> /dev/null; then
     yum install createrepo -y &> /dev/null
 fi
 
+if ! command -v yumdownloader &> /dev/null; then
+    echo "Installing yum-utils"
+    yum install yum-utils -y &> /dev/null
+fi
+
 if ! command -v httpd &> /dev/null; then
     echo -e "Installing httpd\n"
     yum install httpd -y &> /dev/null
+    echo -e "Enabling httpd\n"
+    systemctl enable httpd
 fi
 
 LOOP_DEV="/dev/loop0"
@@ -45,20 +52,20 @@ fi
 for PACKAGE in "$@"; do # 6
     if ! ls "$REPO_DIR" | grep -q "^${PACKAGE}.*\.rpm$"; then
         echo -e "Downloading $PACKAGE\n"
-        yum install --downloadonly --downloaddir=$REPO_DIR $PACKAGE -y &> /dev/null
+        yumdownloader --destdir=$REPO_DIR $PACKAGE &> /dev/null
     fi
 done
 
 if ! ls $REPO_DIR | grep -q "repodata" ; then
     echo -e "Generating repodata\n"
     createrepo $REPO_DIR &> /dev/null # 7
-    restorecon -Rv $REPO_DIR
     yum clean all &> /dev/null
+    restorecon -Rv $REPO_DIR
 elif [ $# -gt 0 ]; then
     echo -e "Renerating repodata\n"
     createrepo --update $REPO_DIR &> /dev/null # 7
-    restorecon -Rv $REPO_DIR
     yum clean all &> /dev/null
+    restorecon -Rv $REPO_DIR
 fi
 
 # Check if the repository is already configured in yum
@@ -78,18 +85,6 @@ if ! systemctl is-active httpd &> /dev/null; then
     systemctl start httpd # 9
 fi
 
-# Check if the repository is already configured in httpd
-if ! grep -q "$REPO_DIR" $HTTPD_CONF; then
-    echo -e "Configuring HTTPD to serve the repository\n"
-    echo "<Directory \"$REPO_DIR\">
-    Options Indexes FollowSymLinks
-    AllowOverride None
-    Require all granted
-</Directory>" >> $HTTPD_CONF
-
-    systemctl restart httpd
-fi
-
 echo "yum repositories:"
 yum repolist # 10
 
@@ -102,4 +97,4 @@ df -h | grep "$REPO_DIR"
 
 echo
 
-yum --disablerepo="*" --enablerepo="$REPO_NAME" list available # 13
+yum --showduplicates --repo="$REPO_NAME" list available # 13
