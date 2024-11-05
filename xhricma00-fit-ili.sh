@@ -25,7 +25,6 @@ REPO_NAME="ukol"
 IMG_PATH="/var/tmp/$REPO_NAME.img"
 REPO_CONF="/etc/yum.repos.d/$REPO_NAME.repo"
 REPO_DIR="/var/www/html/$REPO_NAME"
-HTTPD_CONF="/etc/httpd/conf/httpd.conf"
 
 # Check if the image file is already mounted
 if ! df -h | grep -q "$REPO_DIR"; then
@@ -97,4 +96,4 @@ df -h | grep "$REPO_DIR"
 
 echo
 
-yum --showduplicates --repo="$REPO_NAME" list available # 13
+yum --available --repo="$REPO_NAME" list  # 13
